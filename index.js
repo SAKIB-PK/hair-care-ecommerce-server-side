@@ -65,7 +65,7 @@ async function mainDB(){
             const id = req.params.id
             const query = {_id:ObjectId(id)}
             const result =await products.find(query).toArray()
-            res.json(result)
+            res.json(result[0])
         })
     }finally{
         // Ensures that the client will close when you finish/error
