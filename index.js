@@ -47,6 +47,12 @@ async function mainDB(){
             const result =await products.insertOne(item)
             res.json(result)
         })
+        // last 6 orders get request
+        app.get('/home/products',async(req,res)=>{
+            const query = {}
+            const result =await products.find(query).sort({ $natural: -1 }).limit(6).toArray()
+            res.json(result)
+        })
         // orders get request
         app.get('/products',async(req,res)=>{
             const query = {}
