@@ -37,7 +37,8 @@ async function mainDB(){
         })
         // orders submit get request
         app.get('/orders',async(req,res)=>{
-            const query = {}
+            const email = req.query.email
+            const query = {email:email}
             const result =await orders.find(query).toArray()
             res.json(result)
         })
