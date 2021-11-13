@@ -28,7 +28,21 @@ async function mainDB(){
         const database = client.db('hair-care-shampo');
         const products = database.collection('products');
         const orders = database.collection('orders');
+        const reviewCollection = database.collection('review');
         console.log('Database Connected Successfully')
+        // review submit post request
+        app.post('/review',async(req,res)=>{
+            const review = req.body
+            const result =await reviewCollection.insertOne(review)
+            res.json(result)
+        })
+        
+        // review submit get request
+        app.get('/review',async(req,res)=>{
+            let query ={}
+            const result =await reviewCollection.find(query).toArray()
+            res.json(result)
+        })
         // orders submit post request
         app.post('/orders',async(req,res)=>{
             const item = req.body
