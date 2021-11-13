@@ -29,7 +29,25 @@ async function mainDB(){
         const products = database.collection('products');
         const orders = database.collection('orders');
         const reviewCollection = database.collection('review');
+        const adminCollection = database.collection('admin');
         console.log('Database Connected Successfully')
+        // review submit post request
+        app.post('/admin',async(req,res)=>{
+            const review = req.body
+            const result =await adminCollection.insertOne(review)
+            res.json(result)
+        })
+        
+        // review submit get request
+        app.get('/admin',async(req,res)=>{
+            let query = {}
+            let email = req.query.email
+            if(email){
+            	query ={email:email}
+            }
+            const result =await adminCollection.find(query).toArray()
+            res.json(result[0])
+        })
         // review submit post request
         app.post('/review',async(req,res)=>{
             const review = req.body
