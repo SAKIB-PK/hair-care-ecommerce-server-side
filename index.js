@@ -104,6 +104,14 @@ async function mainDB(){
             res.json(result)
         })
         
+        // products delet request
+        app.delete('/products/:id',async(req,res)=>{
+            const id= req.params.id
+            const query = {_id:ObjectId(id)}
+            const result =await products.deleteOne(query)
+            res.json(result)
+        })
+        
         //one orders get request
         app.get('/products/:id',async(req,res)=>{
             const id = req.params.id
