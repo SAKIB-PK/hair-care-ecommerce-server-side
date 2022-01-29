@@ -2,6 +2,7 @@ const express=require('express')
 const { MongoClient }  = require('mongodb')
 const ObjectId = require('mongodb').ObjectId
 const cors = require('cors')
+const { v4: uuidv4 } = require('uuid');
 const SSLCommerzPayment = require('sslcommerz') // sslcommerz for payment system
 
 require('dotenv').config()
@@ -36,6 +37,7 @@ async function mainDB(){
         const orders = database.collection('orders');
         const reviewCollection = database.collection('review');
         const adminCollection = database.collection('admin');
+        const payment = database.collection("payment_record")
         console.log('Database Connected Successfully')
         // review submit post request
         app.post('/admin',async(req,res)=>{
@@ -129,12 +131,13 @@ async function mainDB(){
 
         // sslcommerz payment system integration initialize
 
-        app.post('/init',(req,res)=>{
+        app.post('/init',async(req,res)=>{
             let {name,email,address,phone,date,order}= req.body
             const data = {
                 total_amount: order?.price,
                 currency: 'BDT',
-                tran_id: 'REF123',
+                tran_id: uuidv4(),
+                payment_status:"pending",
                 success_url: 'http://localhost:5000/success',
                 fail_url: 'http://localhost:5000/fail',
                 cancel_url: 'http://localhost:5000/cancel',
@@ -170,25 +173,70 @@ async function mainDB(){
                 value_d: 'ref004_D'
             };
             const sslcommer = new SSLCommerzPayment(process.env.STORE_ID, process.env.STORE_PASSWORD,false) //true for live default false for sandbox
-            sslcommer.init(data).then(data => {
-                //process the response that got from sslcommerz 
-                //https://developer.sslcommerz.com/doc/v4/#returned-parameters
-                res.json(data.GatewayPageURL)
+            const record =await payment.insertOne(data)
+            sslcommer.init(data).then((data) => {
+                if(data.GatewayPageURL){
+                    //process the response that got from sslcommerz 
+                    //https://developer.sslcommerz.com/doc/v4/#returned-parameters
+                    res.json(data.GatewayPageURL)
+                }else{
+                    return res.status(400).json({
+                        message: "SSL session was not successful"
+                    })
+                }
             });
         })
 
             // sslcommerz payment succes page 
             app.post('/success',async(req,res)=>{
-                res.redirect("http://localhost:3000/payment-success")
+                // update payment validation id 
+                const record = await payment.updateOne({tran_id:req.body.tran_id},{
+                    $set:{
+                        val_id:req.body.val_id
+                    }
+                })
+                res.redirect(`https://hair-care-pk.netlify.app/payment-success/${req.body.tran_id}`)
             })
             // sslcommerz payment cancel page 
             app.post('/cancel',async(req,res)=>{
-                res.redirect("http://localhost:3000/payment-cancel")
+                // if user cancel this order then autometically delete this data 
+                const record = payment.deleteOne({tran_id:req.body.tran_id})
+                res.redirect("https://hair-care-pk.netlify.app/payment-cancel")
             })
             // sslcommerz payment fail page 
             app.post('/fail',async(req,res)=>{
-                res.redirect("http://localhost:3000/payment-failed")
+                // if user cancel this order then autometically delete this data 
+                const record = payment.deleteOne({tran_id:req.body.tran_id})
+                res.redirect("https://hair-care-pk.netlify.app/payment-failed")
             })
+            app.post("/ipn", (req, res) => {
+                console.log(req.body)
+                res.send(req.body);
+            })
+
+
+            // api for  finding specific transaction info
+            app.get("/orders/:id",async(req,res)=>{
+                const id = req.params.id
+                const result = await payment.findOne({tran_id:id})
+                res.json(result)
+            })
+            // validate actual order if its real or not
+            app.post("/validate",async(req,res)=>{
+                const product =await payment.findOne({tran_id:req.body.tran_id})
+                if(product.val_id === req.body.val_id){
+                    const record = await payment.updateOne({tran_id:req.body.tran_id},{
+                        $set:{
+                            payment_status: "Successful"
+                        }
+                    })
+                    res.send(record.modifiedCount>0)
+                }else{
+                    res.json({
+                        message:"Chor Detected!"
+                    })
+                }
+            }) 
     }finally{
         // Ensures that the client will close when you finish/error
         // await client.close();
